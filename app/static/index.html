@@ -1,0 +1,264 @@
+<!-- app/static/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ApigeeX Key Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .loading {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Navigation -->
+        <nav class="bg-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <span class="text-xl font-bold text-gray-800">ApigeeX Key Manager</span>
+                    </div>
+                    <div class="flex items-center">
+                        <button id="refreshButton" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md flex items-center">
+                            <i class="fas fa-sync-alt mr-2"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <!-- Status Overview -->
+            <div class="mb-8">
+                <h2 class="text-lg font-semibold text-gray-700 mb-4">System Status</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="rounded-md bg-green-100 p-3">
+                                <i class="fas fa-key text-green-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-sm font-medium text-gray-500">Active Keys</h3>
+                                <span id="activeKeysCount" class="text-2xl font-semibold text-gray-900">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="rounded-md bg-yellow-100 p-3">
+                                <i class="fas fa-clock text-yellow-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-sm font-medium text-gray-500">Pending Rotations</h3>
+                                <span id="pendingRotationsCount" class="text-2xl font-semibold text-gray-900">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="rounded-md bg-blue-100 p-3">
+                                <i class="fas fa-sync-alt text-blue-600"></i>
+                            </div>
+                            <div class="ml-4">
+                                <h3 class="text-sm font-medium text-gray-500">Last Sync</h3>
+                                <span id="lastSyncTime" class="text-2xl font-semibold text-gray-900">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Apps Table -->
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-semibold text-gray-700">API Keys</h2>
+                        <button id="addAppButton" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md flex items-center">
+                            <i class="fas fa-plus mr-2"></i> Add App
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead>
+                                <tr>
+                                    <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">App Name</th>
+                                    <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Rotated</th>
+                                    <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Next Rotation</th>
+                                    <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="appsTableBody" class="bg-white divide-y divide-gray-200">
+                                <!-- Apps will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add App Modal -->
+    <div id="addAppModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Add New App</h3>
+                <form id="addAppForm">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="appName">
+                            App Name
+                        </label>
+                        <input type="text" id="appName" name="appName" required
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="rotationPeriod">
+                            Rotation Period (days)
+                        </label>
+                        <input type="number" id="rotationPeriod" name="rotationPeriod" value="30" required
+                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="button" id="cancelAddApp" 
+                            class="mr-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                            class="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600">
+                            Add App
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Utility functions
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleString();
+        }
+
+        function showError(message) {
+            alert(message);
+        }
+
+        // App management
+        async function loadApps() {
+            try {
+                const response = await fetch('/apps');
+                if (!response.ok) throw new Error('Failed to load apps');
+                const apps = await response.json();
+                updateDashboard(apps);
+            } catch (error) {
+                showError('Error loading apps: ' + error.message);
+            }
+        }
+
+        async function rotateKey(appName) {
+            try {
+                const response = await fetch(`/apps/${appName}/rotate`, {
+                    method: 'POST'
+                });
+                if (!response.ok) throw new Error('Failed to rotate key');
+                loadApps(); // Refresh the dashboard
+            } catch (error) {
+                showError('Error rotating key: ' + error.message);
+            }
+        }
+
+        async function scheduleRotation(appName, periodDays) {
+            try {
+                const response = await fetch(`/apps/${appName}/schedule`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        app_name: appName,
+                        rotation_period_days: periodDays
+                    })
+                });
+                if (!response.ok) throw new Error('Failed to schedule rotation');
+                loadApps(); // Refresh the dashboard
+            } catch (error) {
+                showError('Error scheduling rotation: ' + error.message);
+            }
+        }
+
+        // UI updates
+        function updateDashboard(apps) {
+            const tableBody = document.getElementById('appsTableBody');
+            tableBody.innerHTML = ''; // Clear existing content
+
+            apps.forEach(app => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${app.app_name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(app.last_rotated)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(app.next_rotation)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full 
+                            ${new Date(app.next_rotation) > new Date() ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                            ${new Date(app.next_rotation) > new Date() ? 'Active' : 'Rotation Due'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button onclick="rotateKey('${app.app_name}')" 
+                            class="text-blue-600 hover:text-blue-900">
+                            Rotate Now
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            // Update dashboard metrics
+            document.getElementById('activeKeysCount').textContent = apps.length;
+            document.getElementById('pendingRotationsCount').textContent = 
+                apps.filter(app => new Date(app.next_rotation) <= new Date()).length;
+            document.getElementById('lastSyncTime').textContent = new Date().toLocaleTimeString();
+        }
+
+        // Modal handling
+        const addAppModal = document.getElementById('addAppModal');
+        const addAppButton = document.getElementById('addAppButton');
+        const cancelAddApp = document.getElementById('cancelAddApp');
+        const addAppForm = document.getElementById('addAppForm');
+
+        addAppButton.onclick = () => addAppModal.classList.remove('hidden');
+        cancelAddApp.onclick = () => addAppModal.classList.add('hidden');
+
+        addAppForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const appName = document.getElementById('appName').value;
+            const rotationPeriod = document.getElementById('rotationPeriod').value;
+            
+            try {
+                await scheduleRotation(appName, parseInt(rotationPeriod));
+                addAppModal.classList.add('hidden');
+                addAppForm.reset();
+                loadApps();
+            } catch (error) {
+                showError('Error adding app: ' + error.message);
+            }
+        };
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', loadApps);
+        document.getElementById('refreshButton').onclick = loadApps;
+
+        // Refresh every 5 minutes
+        setInterval(loadApps, 300000);
+    </script>
+</body>
+</html>
